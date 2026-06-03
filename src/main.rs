@@ -5,7 +5,7 @@ use std::io::Read;
 fn read_version(transaction_hex: &str) -> u32 {
     let transaction_bytes = hex::decode(transaction_hex).expect("Invalid hex string");
     //the try_from method requires a pointer to be passed innit
-    let version_bytes = <[u8; 4]>::try_from(&transaction_bytes[0..4]).unwrap(); //for first 4 bytes
+    // let version_bytes = <[u8; 4]>::try_from(&transaction_bytes[0..4]).unwrap(); //for first 4 bytes
     //THIS PROCESS DOESNT REQUIRE HEAP LOOKUPS AND WE USE
     //ARRAY COZ WE MUST KNOW FIXED SIZE
     //OR let version_bytes: [u8; 4] = transaction_bytes[0..4].try_into().unwrap();
@@ -19,6 +19,12 @@ fn read_version(transaction_hex: &str) -> u32 {
     //When you pass an array to a function, Rust copies the entire array (because arrays implement the Copy trait if their elements do).
     //that means the function gets its own copy of array
     //Without Copy, passing a value to a function moves ownership (you can’t use the original afterward).
+    let mut bytes_slice = transaction_bytes.as_slice();
+    let mut buffer = [0; 4]; //create a buffer of size 4
+    bytes_slice.read(&mut buffer).unwrap(); //read from our slice onto the buffer
+    //we were able to read version by calling the read method to read the first 4 bytes and convert them into u32 integer
+    //modified our pointer on the heap
+
     /*WHEREAS FOR VEC
     fn use_vec(v: Vec<i32>) {
         println!("{:?}", v);
@@ -33,11 +39,10 @@ fn read_version(transaction_hex: &str) -> u32 {
     //TRY_FROM TRAIT -> this method tries to create an array by copying from a slice
     //impl<T,const N:usize> TryFrom<&[T]> for [T;N] where T:Copy
 
-    let num_inputs = transaction_bytes[5];
-    print!("num inputs: {}", num_inputs);
-
+    // let num_inputs = transaction_bytes[5];
+    // print!("num inputs: {}", num_inputs);
     //we unwrap because it is returning a result type, and we want to get the value out of the result type, if it is an error, we want to panic and print the error message.
-    u32::from_le_bytes(version_bytes) //     .try_into().expect("Failed to convert version bytes to u32"));
+    u32::from_le_bytes(buffer) //     .try_into().expect("Failed to convert version bytes to u32"));
     //    println!("version bytes: {:?}", version_bytes);//not all types implement display trait
     //:? says we must implement using debug trait//debug output solved by using {:?} instead of {} in println! macro
     // return 1;
@@ -67,6 +72,15 @@ fn main() {
     println!("Version: {}", version);
 
     //using read
+    /*A source is anything you can read bytes from. In Rust, the Read trait abstracts this idea. Examples:
+
+    Memory slice → &[u8] (like your example).
+
+    File → File::open("data.bin") implements Read.
+
+    Network stream → TcpStream implements Read.
+
+    Standard input → std::io::stdin() implements Read. */
     //It defines how to read bytes from a source into a buffer.
     //Common sources: files, network streams, or even slices of bytes (&[u8]).
     //fn read(&mut self, buf: &mut [u8]) -> Result<usize>
@@ -81,8 +95,15 @@ fn main() {
     //Reads up to 4 bytes from bytes_slice into buffer.
     let version = u32::from_le_bytes(buffer); //Interprets the 4 bytes [1,0,0,0] as a little-endian 32-bit integer.
     println!("Version: {}", version);
-
+    //read method - read bytes put them in a buffer then updating slice
     println!("Bytes slice: {:?}", bytes_slice);
+    //unsized coercion
+    // arrays can be converted to unsized counter pert we can pass in an array if function asks for a slice
+
+    //TRAITS
+
+    //a way to share shared behavior
+    //eg read trait - provides template for types that want to read data
 }
 
 //we use a vec instead of array coz of stack allocation issues, we can use array if we know the size beforehand, but in this case we don't know the size of the transaction hex string, so we use a vec to store the bytes of the transaction.
@@ -92,3 +113,5 @@ fn main() {
 //TRYFROM trait copies and array from a slice, and it returns a Result type that indicates whether the conversion was successful or not. The try_into method is used to convert the slice of bytes into an array of bytes, and it will return an error if the conversion fails. In this case, we use try_into to convert the slice of bytes into an array of 4 bytes, which is the size of the version field in the transaction. If the conversion is successful, we can then use from_le_bytes to convert the array of bytes into a u32 value that represents the version of the transaction. and returns Result
 
 //Tuples up to a size of 12 can be converted into arrays and vice versa. There is no From trait implementation for sizes greater than 12.
+//if refernce goes out of scope nothing happens
+// reference can point to other pointers on the stack
