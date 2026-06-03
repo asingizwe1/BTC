@@ -1,6 +1,10 @@
+// to use a trait we must bring it to scope using "use "
+use std::io::Read;
+
 #[allow(unused)]
 fn read_version(transaction_hex: &str) -> u32 {
     let transaction_bytes = hex::decode(transaction_hex).expect("Invalid hex string");
+    //the try_from method requires a pointer to be passed innit
     let version_bytes = <[u8; 4]>::try_from(&transaction_bytes[0..4]).unwrap(); //for first 4 bytes
     //THIS PROCESS DOESNT REQUIRE HEAP LOOKUPS AND WE USE
     //ARRAY COZ WE MUST KNOW FIXED SIZE
@@ -26,6 +30,11 @@ fn read_version(transaction_hex: &str) -> u32 {
         println!("{:?}", v); // ERROR: v was moved
     }//VECTOR IS STORED ON STACK AS A SMART POINTER
     */
+    //TRY_FROM TRAIT -> this method tries to create an array by copying from a slice
+    //impl<T,const N:usize> TryFrom<&[T]> for [T;N] where T:Copy
+
+    let num_inputs = transaction_bytes[5];
+    print!("num inputs: {}", num_inputs);
 
     //we unwrap because it is returning a result type, and we want to get the value out of the result type, if it is an error, we want to panic and print the error message.
     u32::from_le_bytes(version_bytes) //     .try_into().expect("Failed to convert version bytes to u32"));
@@ -56,6 +65,24 @@ fn main() {
         "0200000001b1ed1c8e5b9a1c3f0e5b6a7c8d9e0f1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f3g4h5i6j7k8l9m0n1o2p3q4r5s6t7u8v9w0x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r7s8t9u0v1w2x3y4z5a6b7",
     );
     println!("Version: {}", version);
+
+    //using read
+    //It defines how to read bytes from a source into a buffer.
+    //Common sources: files, network streams, or even slices of bytes (&[u8]).
+    //fn read(&mut self, buf: &mut [u8]) -> Result<usize>
+    //it is called on a mutable slice
+    let mut bytes_slice: &[u8] = [1, 0, 0, 0, 2].as_slice(); //to make sure we get it as right type
+    let mut buffer = [0_u8; 4]; //buf → a mutable slice where data will be written.
+    //A fixed-size array of 4 bytes, initially [0,0,0,0].
+    bytes_slice.read(&mut buffer).unwrap();
+    /**After this call:
+    buffer = [1,0,0,0] (the first 4 bytes).
+    bytes_slice now points to the remaining [2]. */
+    //Reads up to 4 bytes from bytes_slice into buffer.
+    let version = u32::from_le_bytes(buffer); //Interprets the 4 bytes [1,0,0,0] as a little-endian 32-bit integer.
+    println!("Version: {}", version);
+
+    println!("Bytes slice: {:?}", bytes_slice);
 }
 
 //we use a vec instead of array coz of stack allocation issues, we can use array if we know the size beforehand, but in this case we don't know the size of the transaction hex string, so we use a vec to store the bytes of the transaction.
