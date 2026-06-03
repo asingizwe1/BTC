@@ -2,8 +2,30 @@
 fn read_version(transaction_hex: &str) -> u32 {
     let transaction_bytes = hex::decode(transaction_hex).expect("Invalid hex string");
     let version_bytes = <[u8; 4]>::try_from(&transaction_bytes[0..4]).unwrap(); //for first 4 bytes
+    //THIS PROCESS DOESNT REQUIRE HEAP LOOKUPS AND WE USE
+    //ARRAY COZ WE MUST KNOW FIXED SIZE
     //OR let version_bytes: [u8; 4] = transaction_bytes[0..4].try_into().unwrap();
     //try_into will know the method we are converting into
+    //ARRAYS
+    //arrays are stack allocated meaning they are available more efficiently at runtime
+    //since there is no need for using a pointer to point to the heap at runtime
+    //cant change size and known at compile time
+    //data must be copied to other functions
+    //Vec which is heap-allocated and passed by reference (cheap)
+    //When you pass an array to a function, Rust copies the entire array (because arrays implement the Copy trait if their elements do).
+    //that means the function gets its own copy of array
+    //Without Copy, passing a value to a function moves ownership (you can’t use the original afterward).
+    /*WHEREAS FOR VEC
+    fn use_vec(v: Vec<i32>) {
+        println!("{:?}", v);
+    }
+
+    fn main() {
+        let v = vec![1, 2, 3];
+        use_vec(v);        // ownership moves
+        println!("{:?}", v); // ERROR: v was moved
+    }//VECTOR IS STORED ON STACK AS A SMART POINTER
+    */
 
     //we unwrap because it is returning a result type, and we want to get the value out of the result type, if it is an error, we want to panic and print the error message.
     u32::from_le_bytes(version_bytes) //     .try_into().expect("Failed to convert version bytes to u32"));
