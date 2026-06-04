@@ -115,3 +115,5 @@ fn main() {
 //Tuples up to a size of 12 can be converted into arrays and vice versa. There is no From trait implementation for sizes greater than 12.
 //if refernce goes out of scope nothing happens
 // reference can point to other pointers on the stack
+//SCOPE
+//when object goes out of scope it will call the drop method
