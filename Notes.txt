@@ -1,0 +1,46 @@
+OPERATION OF CompactSize is Bitcoin’s way of encoding integers in a **variable-length format** so that small numbers take fewer bytes, while larger numbers expand as needed. It’s essentially a space‑saving trick used in transaction data structures.
+
+---
+
+## 🔹 How CompactSize Works
+The table you saw breaks it down:
+
+| Value Range | Bytes Used | Format |
+|-------------|------------|--------|
+| \(0 \leq x \leq 252\) | 1 | Stored directly as `uint8_t` |
+| \(253 \leq x \leq 65,535\) (\(0xffff\)) | 3 | Prefix `0xfd` + number as `uint16_t` |
+| \(65,536 \leq x \leq 4,294,967,295\) (\(0xffffffff\)) | 5 | Prefix `0xfe` + number as `uint32_t` |
+| \(4,294,967,296 \leq x \leq 18,446,744,073,709,551,615\) (\(0xffffffffffffffff\)) | 9 | Prefix `0xff` + number as `uint64_t` |
+
+---
+
+## 🔹 Intuition
+- **Small numbers (≤252):** Just one byte. Efficient for common cases like script lengths or counts.
+- **Medium numbers (253–65k):** Need more space, so a marker (`0xfd`) tells the parser “the next 2 bytes are the actual number.”
+- **Larger numbers:** Same idea, but with `0xfe` (next 4 bytes) or `0xff` (next 8 bytes).
+- **Why prefixes?** They act as “tags” so the decoder knows how many bytes to read next.
+
+---
+
+## 🔹 Example
+- Value = 100 → stored as `0x64` (just one byte).
+- Value = 300 → stored as `0xfd 2c 01`  
+  - `0xfd` = marker for 16‑bit.  
+  - `0x012c` = 300 in little‑endian.
+- Value = 70,000 → stored as `0xfe 70 11 01 00`  
+  - `0xfe` = marker for 32‑bit.  
+  - Next 4 bytes = 70,000.
+
+---
+
+## 🔹 Where It’s Used
+CompactSize shows up in many Bitcoin transaction fields:
+- **Input script length** (so the parser knows how many bytes to read).
+- **Output script length.**
+- **Number of inputs/outputs.**
+
+It’s a balance between **compactness** (saving space for small values) and **flexibility** (supporting very large values when needed).
+
+---
+
+Would you like me to also show you a **step‑by‑step decoding walkthrough** (e.g., take a raw hex string from a Bitcoin transaction and parse the CompactSize field into its actual integer)? That way you’ll see how this table applies in practice.
