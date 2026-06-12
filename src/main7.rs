@@ -1,5 +1,46 @@
 use hex;
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
+//Each input tells the network: “I’m spending this specific output from a previous transaction.”
+// TxID (32 bytes)
+
+// The hash of the previous transaction that created the output you’re spending.
+
+// Vout / Output Index (4 bytes, u32)
+
+// Which output of that transaction you’re spending.
+
+// Example: If a transaction had 3 outputs, vout = 0 means the first output, vout = 1 means the second, etc.
+
+// ScriptSig (variable length)
+
+// A script that provides unlocking data (usually your digital signature + public key).
+
+// Proves you own the coins.
+
+// Sequence (4 bytes)
+
+// Used for advanced features like Replace‑By‑Fee or timelocks.
+
+// Often set to 0xFFFFFFFF if unused.
+
+struct input {
+    txid: [u8; 32],
+    output_index: u32,
+    script_sig: Vec<u8>,
+    sequence: u32,
+}
+
+// Implement the Debug trait manually
+// impl fmt::Debug for Input {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("Input")
+//             .field("txid", &self.txid)
+//             .field("output_index", &self.output_index)
+//             .field("script_sig", &self.script_sig)
+//             .field("sequence", &self.sequence)
+//             .finish()
+//     }
+// }
 
 // Reads the 4‑byte version field from the transaction
 fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
@@ -76,7 +117,7 @@ fn main() {
 
     // Read the input count (CompactSize format)
     let input_count = read_compact_size(&mut bytes_slice);
-
+    let mut inputs = vec![];
     // Loop through each input and read its txid
     for _ in 0..input_count {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
@@ -86,9 +127,16 @@ fn main() {
         let txid = read_txid(&mut bytes_slice);
         let script_sig = read_script(&mut bytes_slice);
         let sequence = read_u32(&mut bytes_slice);
+        //we shall push the inputs isnto the inputs vec
+        inputs.push(Input {
+            txid: txid, //you can just remove key -value and just replace with values only
+            output_index: output_index,
+            script_sig: script_sig,
+            sequence: sequence,
+        });
     }
 
     // Print parsed values
     println!("Version: {}", version);
-    println!("Input count: {}", input_count);
+    println!("Inputs {}", inputs);
 }
