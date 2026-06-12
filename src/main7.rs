@@ -1,4 +1,6 @@
 use hex;
+use serde::Serialize; //bringing serde serialize into scope to help in formatting into json format
+
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
 // TxID (32 bytes)
@@ -22,12 +24,24 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Used for advanced features like Replace‑By‑Fee or timelocks.
 
 // Often set to 0xFFFFFFFF if unused.
-#[derive()]
+#[derive(Debug, Serialize)] //as long as all types that belong to it can be serialized
 struct input {
-    txid: [u8; 32],
+    txid: String, // [u8; 32],
     output_index: u32,
-    script_sig: Vec<u8>,
+    script_sig: String, //Vec<u8>,
     sequence: u32,
+}
+#[derive(Debug, Serialize)]
+struct Transaction {
+    Version: u32, // [u8; 32],
+    inputs: Vec<Input>,
+    outputs: Vec<Output>,
+}
+//OUTPUT
+#[derive(Debug, Serialize)]
+struct Output {
+    amount: u64,
+    script_pubkey: String,
 }
 
 // Implement the Debug trait manually
@@ -51,6 +65,13 @@ fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
     u32::from_le_bytes(buffer) // Interpret them as little‑endian u32
 }
 
+fn read_64(transaction_bytes: &mut &[u8]) -> u64 {
+    //making read_version more generic
+    //we read 4 bytes and retruned u32 representing the version also the index works the same way
+    let mut buffer = [0; 8]; // Allocate 8 bytes
+    transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
+    u64::from_le_bytes(buffer) // Interpret them as little‑endian u32
+}
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
     let mut compact_size = [0u8; 1]; // Read the first marker byte
@@ -77,19 +98,21 @@ fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
 }
 //we want a data structure to return 32 bytes thats an array hence return type
 // Placeholder for reading a transaction ID (txid) — usually 32 bytes
-fn read_txid(transaction_bytes: &mut &[u8]) -> [u8; 32] {
+fn read_txid(transaction_bytes: &mut &[u8]) -> String {
+    // [u8; 32]
     let mut buffer = [0; 32]; // Allocate 32 bytes
     transaction_bytes.read(&mut buffer).unwrap(); // Read 32 bytes
     //we look up tx ids in big endian format
     buffer.reverse(); //this reverses the bytes in place
-    buffer //to return array
+    hex::encode(buffer) //to return array - to encode the buffer as hex strings
     //next 4 bytes give us output index, we are spending from
     // Return the raw txid bytes
 }
 
 //mut &[u8] -> any dynamically sized contiguous data
 //since the script size isnt known
-fn read_script(transaction_bytes: &mut &[u8]) -> Vec<u8> {
+fn read_script(transaction_bytes: &mut &[u8]) -> String {
+    //-> Vec<u8> {
     //You can’t directly use u64 for indexing or allocation because Rust enforces type safety.
     let script_size = read_compact_size(&mut bytes_slice) as usize;
     let mut buffer = vec![0_u8; script_size]; //the length parameter must be a usize, not u64.
@@ -99,7 +122,7 @@ fn read_script(transaction_bytes: &mut &[u8]) -> Vec<u8> {
     This ensures that when you say “make a vector of length N,” the compiler knows how to handle it safely in memory. */
     transaction_bytes.read(&mut buffer).unwrap();
     //if type doesnt match rust coul try to dereference the object
-    buffer
+    hex::encode(buffer) // buffer
 }
 
 fn main() {
@@ -135,8 +158,35 @@ fn main() {
             sequence: sequence,
         });
     }
+    //after input section we shall collect our outputs
+    let output_count = read_compact_size(&mut bytes_slice);
+    let mut outputs = vec![];
+    // Loop through each input and read its txid
+    for _ in 0..output_count {
+        //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
+        //INPUT COMPONENTS
+        //for the output index we call u32
+        let amount = read_u64(&mut bytes_slice) / 100_000_000; //since it was in satoshi's
+        let script_pubkey = read_script(&mut bytes_slice);
 
+        //we shall push the inputs isnto the inputs vec
+        outputs.push(Input {
+            amount, //you can just remove key -value and just replace with values only
+            script_pubkey,
+        });
+    }
+
+    let transaction = Transaction {
+        version,
+        inputs,
+        outputs,
+    };
+
+    // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
     // Print parsed values
-    println!("Version: {}", version);
-    println!("Inputs {}", inputs);
+    println!(
+        "Tx: {}",
+        serde_json::to_string_pretty(&transaction).unwrap()
+    );
+    // println!("Inputs {}", json_inputs);
 }

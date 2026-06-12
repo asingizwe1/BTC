@@ -1,0 +1,20 @@
+/*fn main() {
+    let vec: Vec::<u8> = vec![0, 0, 0, 0, 0];
+    println!("Vec: {}", vec);
+}
+This code will fail to compile because Vec<u8> doesn't implement the std::fmt::Display trait. Go ahead and implement the display trait so that you print out the Vec. You can experiment on Rust Playground.
+
+Hint: Be aware of the orphan rule in Rust which prevents you from implementing external traits on external types. In order to circumvent this, you would have to use the newtype pattern to wrap the Vec in a locally defined type.
+
+
+
+See solution here on Rust playground for one possible method of displaying values: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=effa83ceba20fbe2ae36b6d9072a7224
+
+Explanation: We have to implement the required method fmt. The basic idea is that we leverage the write! macro which takes the Formatter instance and writes some information to it. If any step fails, an error variant of the Result type will be returned which is expected by the function return. (Note: We'll talk more about error handling and the ? operator later on in the course). If we iterate through the vector and are able to write all values successfully we can simply return the Ok(()) result, which also matches the the expected result typefmt::Result. We need to create a CustomVec<T> using the Newtype Pattern to implement external traits on external types.
+
+
+The following code on Rust playground will not compile: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=233a0a5ed2672b24a87e8718c0047c29
+
+Implement the Deref trait for Bar so that calling the hello on a Bar instance will call Foo's hello method.
+Solution here: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f6e5f4a74ada73d7590a827d2657e5a6
+*/
