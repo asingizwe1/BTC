@@ -31,6 +31,13 @@ struct input {
     script_sig: String, //Vec<u8>,
     sequence: u32,
 }
+impl Amount {
+    pub fn to_btc(&self) -> f64 {
+        //self.0 ->calls first element which is f64
+        self.0 as f64 / 100_000_000.0
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct Transaction {
     Version: u32, // [u8; 32],
@@ -40,7 +47,7 @@ struct Transaction {
 //OUTPUT
 #[derive(Debug, Serialize)]
 struct Output {
-    amount: u64,
+    amount: f64,
     script_pubkey: String,
 }
 
@@ -65,12 +72,12 @@ fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
     u32::from_le_bytes(buffer) // Interpret them as little‑endian u32
 }
 
-fn read_64(transaction_bytes: &mut &[u8]) -> u64 {
+fn read_amount(transaction_bytes: &mut &[u8]) -> Amount {
     //making read_version more generic
     //we read 4 bytes and retruned u32 representing the version also the index works the same way
     let mut buffer = [0; 8]; // Allocate 8 bytes
     transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
-    u64::from_le_bytes(buffer) // Interpret them as little‑endian u32
+    Amount(u64::from_le_bytes(buffer)) // Interpret them as little‑endian u32
 }
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
@@ -166,7 +173,7 @@ fn main() {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
         //INPUT COMPONENTS
         //for the output index we call u32
-        let amount = read_u64(&mut bytes_slice) / 100_000_000; //since it was in satoshi's
+        let amount = read_amount(&mut bytes_slice).to_btc; //since it was in satoshi's
         let script_pubkey = read_script(&mut bytes_slice);
 
         //we shall push the inputs isnto the inputs vec
@@ -190,3 +197,18 @@ fn main() {
     );
     // println!("Inputs {}", json_inputs);
 }
+/*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
+variable : length format
+CompactSize is Bitcoin’s way of encoding integers in a variable ‑ length format
+If the number ≤ 252 → store it in 1 byte.
+If the number ≤ 65,535 → prefix with 0xFD and store it in 2 bytes (u16).
+If the number ≤ 4,294,967,295 → prefix with 0xFE and store it in 4 bytes (u32).
+ structures exist in other protocols:
+
+VarInt in protobuf.
+
+LEB128 in WebAssembly.
+
+Variable‑length quantity (VLQ) in MIDI files.
+
+*/
