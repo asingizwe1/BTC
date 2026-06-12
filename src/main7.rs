@@ -49,6 +49,7 @@ fn read_txid(transaction_bytes: &mut &[u8]) -> [u8; 32] {
 //mut &[u8] -> any dynamically sized contiguous data
 //since the script size isnt known
 fn read_script(transaction_bytes: &mut &[u8]) -> Vec<u8> {
+    //You can’t directly use u64 for indexing or allocation because Rust enforces type safety.
     let script_size = read_compact_size(&mut bytes_slice) as usize;
     let mut buffer = vec![0_u8; script_size]; //the length parameter must be a usize, not u64.
     //usize is the type Rust uses for memory sizes and indexing.
@@ -78,9 +79,13 @@ fn main() {
 
     // Loop through each input and read its txid
     for _ in 0..input_count {
+        //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
+        //INPUT COMPONENTS
         //for the output index we call u32
         let output_index = read_u32(&mut bytes_slice);
         let txid = read_txid(&mut bytes_slice);
+        let script_sig = read_script(&mut bytes_slice);
+        let sequence = read_u32(&mut bytes_slice);
     }
 
     // Print parsed values
