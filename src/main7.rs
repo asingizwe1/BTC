@@ -22,7 +22,7 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Used for advanced features like Replace‑By‑Fee or timelocks.
 
 // Often set to 0xFFFFFFFF if unused.
-
+#[derive()]
 struct input {
     txid: [u8; 32],
     output_index: u32,
