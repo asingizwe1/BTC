@@ -1,5 +1,5 @@
 use hex;
-use serde::Serialize; //bringing serde serialize into scope to help in formatting into json format
+use serde::{Serialize,Serializer}; //bringing serde serialize into scope to help in formatting into json format
 
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
@@ -31,6 +31,7 @@ struct input {
     script_sig: String, //Vec<u8>,
     sequence: u32,
 }
+
 impl Amount {
     pub fn to_btc(&self) -> f64 {
         //self.0 ->calls first element which is f64
@@ -47,10 +48,15 @@ struct Transaction {
 //OUTPUT
 #[derive(Debug, Serialize)]
 struct Output {
-    amount: f64,
+    #[serde(serialize_with = "as_btc")]
+    amount: Amount, //f64, //we want to keep this as amount type not as f64 -> we serialise it
     script_pubkey: String,
 }
-
+//our type will get cast into this method as variable t
+fn as_btc<S: Serializer, T>(t: &T, s: S) -> Result<S::Ok, S::Error> {
+    let btc = t.to_btc();//rust doesnt know about the types to be passed in this method
+    s.serialize_f64(btc)
+}
 // Implement the Debug trait manually
 // impl fmt::Debug for Input {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -173,7 +179,7 @@ fn main() {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
         //INPUT COMPONENTS
         //for the output index we call u32
-        let amount = read_amount(&mut bytes_slice).to_btc; //since it was in satoshi's
+        let amount = read_amount(&mut bytes_slice)//.to_btc; //since it was in satoshi's
         let script_pubkey = read_script(&mut bytes_slice);
 
         //we shall push the inputs isnto the inputs vec

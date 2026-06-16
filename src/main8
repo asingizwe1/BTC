@@ -18,3 +18,22 @@ The following code on Rust playground will not compile: https://play.rust-lang.o
 Implement the Deref trait for Bar so that calling the hello on a Bar instance will call Foo's hello method.
 Solution here: https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=f6e5f4a74ada73d7590a827d2657e5a6
 */
+use std::fmt::{self, Display, Formatter};
+
+struct CustomVec(Vec<u8>);
+
+impl Display for CustomVec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Values:\n")?;
+        for v in &self.0 {
+            write!(f, "\t{}", v)?;
+        }
+        Ok(())
+    }
+}
+
+fn main() {
+    let vec: CustomVec = CustomVec(vec![0, 0, 0, 0, 0]);
+    println!("{}", vec);
+}
+/*Explanation: We have to implement the required method fmt. The basic idea is that we leverage the write! macro which takes the Formatter instance and writes some information to it. If any step fails, an error variant of the Result type will be returned which is expected by the function return. (Note: We'll talk more about error handling and the ? operator later on in the course). If we iterate through the vector and are able to write all values successfully we can simply return the Ok(()) result, which also matches the the expected result typefmt::Result. We need to create a CustomVec<T> using the Newtype Pattern to implement external traits on external types. */
