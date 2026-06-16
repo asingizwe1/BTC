@@ -32,12 +32,12 @@ struct input {
     sequence: u32,
 }
 
-impl Amount {
-    pub fn to_btc(&self) -> f64 {
-        //self.0 ->calls first element which is f64
-        self.0 as f64 / 100_000_000.0
-    }
-}
+// impl Amount {
+//     // pub fn to_btc(&self) -> f64 {
+//     //     //self.0 ->calls first element which is f64
+//     //     self.0 as f64 / 100_000_000.0
+//     // }we  no longer need implementation for to_btc coz we are going to implement it for a trait to be used in the as_btc function
+// }
 
 #[derive(Debug, Serialize)]
 struct Transaction {
@@ -45,6 +45,20 @@ struct Transaction {
     inputs: Vec<Input>,
     outputs: Vec<Output>,
 }
+
+trait BitcoinValue{
+fn to_btc(&self)->f64;
+
+}
+
+impl BitcoinValue for Amount{
+fn to_btc(&self)->f64{
+self.0 as f64 /100_000_000.0
+
+}
+
+}
+
 //OUTPUT
 #[derive(Debug, Serialize)]
 struct Output {
@@ -53,7 +67,8 @@ struct Output {
     script_pubkey: String,
 }
 //our type will get cast into this method as variable t
-fn as_btc<S: Serializer, T>(t: &T, s: S) -> Result<S::Ok, S::Error> {
+//we are storing amount as amount type but displaying it as an f64
+fn as_btc<S: Serializer, T:BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
     let btc = t.to_btc();//rust doesnt know about the types to be passed in this method
     s.serialize_f64(btc)
 }
