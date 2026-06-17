@@ -1,12 +1,26 @@
-struct Point<T> {
+use std::ops::{Add, Mul};
+//add trait bounds to struct
+struct Point<T: Add + Mul> {
     x: T,
     y: T,
 }
 
-impl Point {
+//since its generic it should also be defined for the impl block
+//+ is used to combine multiple trait bounds on the same type.
+impl<T> Point<T>
+where
+    // "T must implement Add, Mul, and Copy."
+    T: Add<Output = T> + Mul<Output = T> + Copy,
+    f64: From<T>, //
+{
     //can every type be multiplied - hence trait bounds (what must be supported)
     //mul,add, does u8 have sqrt-no neither does i32 but f32 does
-    fn distance_from_zero() {}
+    //trait bounds as guarantees that certain methods are allowed to be called.
+    //we need to guarantee that the type passed in can be added to, multiplied to, copied out of self without moving, and converted to the f64 type.
+    fn distance_from_zero(&self) -> f64 {
+        let float_sum: f64 = (self.x * self.x + self.y * self.y).into();
+        float_sum.sqrt()
+    }
 }
 
 fn main() {
@@ -30,7 +44,7 @@ mod unit_tests {
     #[test]
     fn test_point_u8() {
         let p1 = Point { x: 3_u8, y: 4_u8 };
-        //basing
+        //basing on this comparison we need a trait that allows conversion ie Into,From
         assert_eq!(p1.distance_from_zero(), 5.0);
     }
 

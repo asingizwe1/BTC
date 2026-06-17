@@ -1,5 +1,5 @@
 use hex;
-use serde::{Serialize,Serializer}; //bringing serde serialize into scope to help in formatting into json format
+use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
 
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
@@ -24,65 +24,6 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Used for advanced features like Replace‑By‑Fee or timelocks.
 
 // Often set to 0xFFFFFFFF if unused.
-#[derive(Debug, Serialize)] //as long as all types that belong to it can be serialized
-struct input {
-    txid: String, // [u8; 32],
-    output_index: u32,
-    script_sig: String, //Vec<u8>,
-    sequence: u32,
-}
-
-// impl Amount {
-//     // pub fn to_btc(&self) -> f64 {
-//     //     //self.0 ->calls first element which is f64
-//     //     self.0 as f64 / 100_000_000.0
-//     // }we  no longer need implementation for to_btc coz we are going to implement it for a trait to be used in the as_btc function
-// }
-
-#[derive(Debug, Serialize)]
-struct Transaction {
-    Version: u32, // [u8; 32],
-    inputs: Vec<Input>,
-    outputs: Vec<Output>,
-}
-
-trait BitcoinValue{
-fn to_btc(&self)->f64;
-
-}
-
-impl BitcoinValue for Amount{
-fn to_btc(&self)->f64{
-self.0 as f64 /100_000_000.0
-
-}
-
-}
-
-//OUTPUT
-#[derive(Debug, Serialize)]
-struct Output {
-    #[serde(serialize_with = "as_btc")]
-    amount: Amount, //f64, //we want to keep this as amount type not as f64 -> we serialise it
-    script_pubkey: String,
-}
-//our type will get cast into this method as variable t
-//we are storing amount as amount type but displaying it as an f64
-fn as_btc<S: Serializer, T:BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
-    let btc = t.to_btc();//rust doesnt know about the types to be passed in this method
-    s.serialize_f64(btc)
-}
-// Implement the Debug trait manually
-// impl fmt::Debug for Input {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("Input")
-//             .field("txid", &self.txid)
-//             .field("output_index", &self.output_index)
-//             .field("script_sig", &self.script_sig)
-//             .field("sequence", &self.sequence)
-//             .finish()
-//     }
-// }
 
 // Reads the 4‑byte version field from the transaction
 fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
@@ -194,7 +135,7 @@ fn main() {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
         //INPUT COMPONENTS
         //for the output index we call u32
-        let amount = read_amount(&mut bytes_slice)//.to_btc; //since it was in satoshi's
+        let amount = read_amount(&mut bytes_slice); //.to_btc; //since it was in satoshi's
         let script_pubkey = read_script(&mut bytes_slice);
 
         //we shall push the inputs isnto the inputs vec
