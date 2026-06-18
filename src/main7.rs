@@ -1,5 +1,5 @@
 use hex;
-use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
+// use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
 
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
@@ -25,22 +25,9 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 
 // Often set to 0xFFFFFFFF if unused.
 
-// Reads the 4‑byte version field from the transaction
-fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
-    //making read_version more generic
-    //we read 4 bytes and retruned u32 representing the version also the index works the same way
-    let mut buffer = [0; 4]; // Allocate 4 bytes
-    transaction_bytes.read(&mut buffer).unwrap(); // Read 4 bytes into buffer
-    u32::from_le_bytes(buffer) // Interpret them as little‑endian u32
-}
-
-fn read_amount(transaction_bytes: &mut &[u8]) -> Amount {
-    //making read_version more generic
-    //we read 4 bytes and retruned u32 representing the version also the index works the same way
-    let mut buffer = [0; 8]; // Allocate 8 bytes
-    transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
-    Amount(u64::from_le_bytes(buffer)) // Interpret them as little‑endian u32
-}
+// use serde::{Serialize, Serializer}; we move this to the transaction file
+use transaction::{Amount, Input, Output, Transaction}; //may fail coz structs are private
+mod transaction;
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
     let mut compact_size = [0u8; 1]; // Read the first marker byte
@@ -93,6 +80,41 @@ fn read_script(transaction_bytes: &mut &[u8]) -> String {
     //if type doesnt match rust coul try to dereference the object
     hex::encode(buffer) // buffer
 }
+
+//our type will get cast into this method as variable t
+//we are storing amount as amount type but displaying it as an f64
+fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
+    let btc = t.to_btc(); //rust doesnt know about the types to be passed in this method
+    s.serialize_f64(btc)
+}
+// Implement the Debug trait manually
+// impl fmt::Debug for Input {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("Input")
+//             .field("txid", &self.txid)
+//             .field("output_index", &self.output_index)
+//             .field("script_sig", &self.script_sig)
+//             .field("sequence", &self.sequence)
+//             .finish()
+//     }
+// }
+// Reads the 4‑byte version field from the transaction
+fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
+    //making read_version more generic
+    //we read 4 bytes and retruned u32 representing the version also the index works the same way
+    let mut buffer = [0; 4]; // Allocate 4 bytes
+    transaction_bytes.read(&mut buffer).unwrap(); // Read 4 bytes into buffer
+    u32::from_le_bytes(buffer) // Interpret them as little‑endian u32
+}
+
+fn read_amount(transaction_bytes: &mut &[u8]) -> Amount {
+    //making read_version more generic
+    //we read 4 bytes and retruned u32 representing the version also the index works the same way
+    let mut buffer = [0; 8]; // Allocate 8 bytes
+    transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
+    Amount::from_sat(u64::from_le_bytes(buffer)) // Interpret them as little‑endian u64
+}
+
 
 fn main() {
     // Example transaction hex string (truncated for demo)
@@ -158,6 +180,8 @@ fn main() {
         serde_json::to_string_pretty(&transaction).unwrap()
     );
     // println!("Inputs {}", json_inputs);
+
+
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
 variable : length format
