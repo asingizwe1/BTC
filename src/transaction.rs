@@ -19,6 +19,7 @@ pub struct Transaction {
     pub Version: u32, // [u8; 32],
     pub inputs: Vec<Input>,
     pub outputs: Vec<Output>,
+    pub lock_time: u32,
 }
 
 trait BitcoinValue {

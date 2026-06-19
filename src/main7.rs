@@ -1,7 +1,8 @@
 use hex;
 // use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
+
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
 // TxID (32 bytes)
 
@@ -26,7 +27,7 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Often set to 0xFFFFFFFF if unused.
 
 // use serde::{Serialize, Serializer}; we move this to the transaction file
-use transaction::{Amount, Input, Output, Transaction}; //may fail coz structs are private
+use transaction::{Amount, Input, Output, Transaction, Txid}; //may fail coz structs are private
 mod transaction;
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
@@ -54,13 +55,16 @@ fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
 }
 //we want a data structure to return 32 bytes thats an array hence return type
 // Placeholder for reading a transaction ID (txid) — usually 32 bytes
-fn read_txid(transaction_bytes: &mut &[u8]) -> String {
+fn read_txid(transaction_bytes: &mut &[u8]) -> Txid {
     // [u8; 32]
     let mut buffer = [0; 32]; // Allocate 32 bytes
     transaction_bytes.read(&mut buffer).unwrap(); // Read 32 bytes
     //we look up tx ids in big endian format
-    buffer.reverse(); //this reverses the bytes in place
-    hex::encode(buffer) //to return array - to encode the buffer as hex strings
+    // buffer.reverse(); //this reverses the bytes in place - also dont need to reverse it coz its getting serialized
+    Txid::from_bytes(
+        //hex::encode - we dont need to hex encode it
+        buffer,
+    ) //to return array - to encode the buffer as hex strings
     //next 4 bytes give us output index, we are spending from
     // Return the raw txid bytes
 }
@@ -81,7 +85,7 @@ fn read_script(transaction_bytes: &mut &[u8]) -> String {
     hex::encode(buffer) // buffer
 }
 //sha 256 will always produce 32 bytes so we know size at compile time
-fn hash_raw_transaction(raw_transaction: &[u8]) -> [u8; 32] {
+fn hash_raw_transaction(raw_transaction: &[u8]) -> Txid {
     // First SHA-256 hash
     let mut hasher = Sha256::new();
     hasher.update(raw_transaction);
@@ -93,7 +97,7 @@ fn hash_raw_transaction(raw_transaction: &[u8]) -> [u8; 32] {
     let hash2 = hasher.finalize();
     //we make sure we are hashing twice
     // Convert to fixed-size array [u8; 32]
-    hash2.into()
+    Txid::from_bytes(hash2.into()) //convert hash to our expected return type ->32 byte array
 }
 
 //our type will get cast into this method as variable t
@@ -181,11 +185,36 @@ fn main() {
         });
     }
 
+    // Read lock_time from the byte slice
+    let lock_time = read_u32(&mut bytes_slice);
+
+    // Compute the transaction ID by double SHA-256 hashing
+    let transaction_id = hash_raw_transaction(&transaction_bytes);
+
     let transaction = Transaction {
+        transaction_id,
         version,
         inputs,
         outputs,
+        lock_time,
     };
+
+    #[derive(Debug)]
+    pub struct Txid([u8; 32]);
+
+    impl Txid {
+        pub fn from_bytes(bytes: [u8; 32]) -> Txid {
+            Txid(bytes)
+        }
+    }
+
+    impl Serialize for Txid {
+        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+            let mut bytes = self.0.clone();
+            bytes.reverse(); //we first clone so that we are just modifying a copy in memory not the actual data
+            s.serialize_str(&hex::encode(bytes))
+        }
+    }
 
     // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
     // Print parsed values
