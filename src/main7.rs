@@ -25,13 +25,14 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Used for advanced features like Replace‑By‑Fee or timelocks.
 
 // Often set to 0xFFFFFFFF if unused.
-use std::io::{Error, Read};
+use std::error::Error;
+use std::io::{Error as ioErr, Read};
 // use serde::{Serialize, Serializer}; we move this to the transaction file
 use transaction::{Amount, Input, Output, Transaction, Txid}; //may fail coz structs are private
 mod transaction;
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 //the error comes from the Read trait
-fn read_compact_size(transaction_bytes: &mut &[u8]) -> Result<u64, Error> {
+fn read_compact_size(transaction_bytes: &mut &[u8]) -> Result<u64, ioError> {
     //u64 {
     let mut compact_size = [0u8; 1]; // Read the first marker byte
     transaction_bytes.read(&mut compact_size)?; //.unwrap(); //using ? propagates the error instead of panicking when you use unwrap
@@ -74,7 +75,7 @@ fn read_txid(transaction_bytes: &mut &[u8]) -> Txid {
 
 //mut &[u8] -> any dynamically sized contiguous data
 //since the script size isnt known
-fn read_script(transaction_bytes: &mut &[u8]) -> Result<String, Error> {
+fn read_script(transaction_bytes: &mut &[u8]) -> Result<String, ioError> {
     //-> Vec<u8> {
     //You can’t directly use u64 for indexing or allocation because Rust enforces type safety.
     let script_size = read_compact_size(&mut bytes_slice)? //? because read_compact_size was changed to return a result 
@@ -107,7 +108,7 @@ fn hash_raw_transaction(raw_transaction: &[u8]) -> Txid {
 
 //our type will get cast into this method as variable t
 //we are storing amount as amount type but displaying it as an f64
-fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
+fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::ioError> {
     let btc = t.to_btc(); //rust doesnt know about the types to be passed in this method
     Ok(s.serialize_f64(btc))
 }
@@ -123,7 +124,7 @@ fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error
 //     }
 // }
 // Reads the 4‑byte version field from the transaction
-fn read_32(transaction_bytes: &mut &[u8]) -> Result<u32, Error> {
+fn read_32(transaction_bytes: &mut &[u8]) -> Result<u32, ioError> {
     //making read_version more generic
     //we read 4 bytes and retruned u32 representing the version also the index works the same way
     let mut buffer = [0; 4]; // Allocate 4 bytes
@@ -131,7 +132,7 @@ fn read_32(transaction_bytes: &mut &[u8]) -> Result<u32, Error> {
     Ok(u32::from_le_bytes(buffer)) // Interpret them as little‑endian u32
 }
 
-fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, Error> {
+fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, ioError> {
     //making read_version more generic
     //we read 4 bytes and retruned u32 representing the version also the index works the same way
     let mut buffer = [0; 8]; // Allocate 8 bytes
@@ -139,14 +140,16 @@ fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, Error> {
     Ok(Amount::from_sat(u64::from_le_bytes(buffer))) // Interpret them as little‑endian u64
 }
 
-fn main() -> Result<(), Error> //empty tuple or an error will be handled
+fn main() -> Result<(), dyn Error> //empty tuple or an error will be handled
 {
+    //box type takes some data and  allocates IT TO HEAP AND returns a pointer
+    //coz pointer size is known at compile time and those many error types of Dyn err arent known
     // Example transaction hex string (truncated for demo)
     let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
 
     // Decode hex string into raw bytes
-    let transaction_bytes = hex::decode(transaction_hex)?;
-
+    let transaction_bytes = hex::decode(transaction_hex).unwrap();
+    ///putting ? would coz an error coz rust expects error from rust not a custom one
     // Turn Vec<u8> into a slice so we can read sequentially
     let mut bytes_slice = transaction_bytes.as_slice();
 
@@ -215,7 +218,7 @@ fn main() -> Result<(), Error> //empty tuple or an error will be handled
     }
 
     impl Serialize for Txid {
-        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::ioError> {
             let mut bytes = self.0.clone();
             bytes.reverse(); //we first clone so that we are just modifying a copy in memory not the actual data
             s.serialize_str(&hex::encode(bytes))
@@ -226,7 +229,7 @@ fn main() -> Result<(), Error> //empty tuple or an error will be handled
     // Print parsed values
     println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
     // println!("Inputs {}", json_inputs);
-    //we return an empty tuple for the program to compile correctly
+    Ok(()) //we return an empty tuple for the program to compile correctly
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
 variable : length format
