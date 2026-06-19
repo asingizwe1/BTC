@@ -25,31 +25,34 @@ use std::io::Read; // Needed to use the .read() method on byte slices // Externa
 // Used for advanced features like Replace‑By‑Fee or timelocks.
 
 // Often set to 0xFFFFFFFF if unused.
-
+use std::io::{Error, Read};
 // use serde::{Serialize, Serializer}; we move this to the transaction file
 use transaction::{Amount, Input, Output, Transaction, Txid}; //may fail coz structs are private
 mod transaction;
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
-fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
+//the error comes from the Read trait
+fn read_compact_size(transaction_bytes: &mut &[u8]) -> Result<u64, Error> {
+    //u64 {
     let mut compact_size = [0u8; 1]; // Read the first marker byte
-    transaction_bytes.read(&mut compact_size).unwrap();
+    transaction_bytes.read(&mut compact_size)?; //.unwrap(); //using ? propagates the error instead of panicking when you use unwrap
     //read_compact_size returns a u64 because Bitcoin’s CompactSize can represent very large numbers (up to 2^64).
     match compact_size[0] {
-        0..=252 => compact_size[0] as u64, // Direct value
+        //we need to map the expressions returned in the Ok
+        0..=252 => Ok(compact_size[0] as u64), // Direct value
         253 => {
             let mut buffer = [0u8; 2]; // Next 2 bytes → u16
-            transaction_bytes.read(&mut buffer).unwrap();
-            u16::from_le_bytes(buffer) as u64
+            transaction_bytes.read(&mut buffer)?; //.unwrap();
+            Ok(u16::from_le_bytes(buffer) as u64)
         }
         254 => {
             let mut buffer = [0u8; 4]; // Next 4 bytes → u32
-            transaction_bytes.read(&mut buffer).unwrap();
-            u32::from_le_bytes(buffer) as u64
+            transaction_bytes.read(&mut buffer)?; //.unwrap();
+            Ok(u32::from_le_bytes(buffer) as u64)
         }
         255 => {
             let mut buffer = [0u8; 8]; // Next 8 bytes → u64
-            transaction_bytes.read(&mut buffer).unwrap();
-            u64::from_le_bytes(buffer) //interprete the bytes as little endian
+            transaction_bytes.read(&mut buffer)?; //.unwrap();
+            Ok(u64::from_le_bytes(buffer)) //interprete the bytes as little endian
         }
     }
 }
@@ -58,7 +61,7 @@ fn read_compact_size(transaction_bytes: &mut &[u8]) -> u64 {
 fn read_txid(transaction_bytes: &mut &[u8]) -> Txid {
     // [u8; 32]
     let mut buffer = [0; 32]; // Allocate 32 bytes
-    transaction_bytes.read(&mut buffer).unwrap(); // Read 32 bytes
+    transaction_bytes.read(&mut buffer)?; //.unwrap(); // Read 32 bytes
     //we look up tx ids in big endian format
     // buffer.reverse(); //this reverses the bytes in place - also dont need to reverse it coz its getting serialized
     Txid::from_bytes(
