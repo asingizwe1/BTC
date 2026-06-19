@@ -1,6 +1,6 @@
 use hex;
 // use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
-
+use sha2::Sha256;
 use std::io::Read; // Needed to use the .read() method on byte slices // External crate for decoding hex strings into bytes
 //Each input tells the network: “I’m spending this specific output from a previous transaction.”
 // TxID (32 bytes)
@@ -80,6 +80,21 @@ fn read_script(transaction_bytes: &mut &[u8]) -> String {
     //if type doesnt match rust coul try to dereference the object
     hex::encode(buffer) // buffer
 }
+//sha 256 will always produce 32 bytes so we know size at compile time
+fn hash_raw_transaction(raw_transaction: &[u8]) -> [u8; 32] {
+    // First SHA-256 hash
+    let mut hasher = Sha256::new();
+    hasher.update(raw_transaction);
+    let hash1 = hasher.finalize();
+
+    // Second SHA-256 hash (double hashing)
+    let mut hasher = Sha256::new();
+    hasher.update(hash1);
+    let hash2 = hasher.finalize();
+    //we make sure we are hashing twice
+    // Convert to fixed-size array [u8; 32]
+    hash2.into()
+}
 
 //our type will get cast into this method as variable t
 //we are storing amount as amount type but displaying it as an f64
@@ -114,7 +129,6 @@ fn read_amount(transaction_bytes: &mut &[u8]) -> Amount {
     transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
     Amount::from_sat(u64::from_le_bytes(buffer)) // Interpret them as little‑endian u64
 }
-
 
 fn main() {
     // Example transaction hex string (truncated for demo)
@@ -180,8 +194,6 @@ fn main() {
         serde_json::to_string_pretty(&transaction).unwrap()
     );
     // println!("Inputs {}", json_inputs);
-
-
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
 variable : length format
