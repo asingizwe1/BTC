@@ -84,12 +84,12 @@ fn read_script(transaction_bytes: &mut &[u8]) -> Result<String, Error> {
     /*On a 32‑bit system → usize is 32 bits.
 
     This ensures that when you say “make a vector of length N,” the compiler knows how to handle it safely in memory. */
-    transaction_bytes.read(&mut buffer).unwrap();
+    transaction_bytes.read(&mut buffer)?;
     //if type doesnt match rust coul try to dereference the object
-    hex::encode(buffer) // buffer
+    Ok(hex::encode(buffer)) // buffer
 }
 //sha 256 will always produce 32 bytes so we know size at compile time
-fn hash_raw_transaction(raw_transaction: &[u8]) -> Result<Txid, Error> {
+fn hash_raw_transaction(raw_transaction: &[u8]) -> Txid {
     // First SHA-256 hash
     let mut hasher = Sha256::new();
     hasher.update(raw_transaction);
@@ -101,7 +101,8 @@ fn hash_raw_transaction(raw_transaction: &[u8]) -> Result<Txid, Error> {
     let hash2 = hasher.finalize();
     //we make sure we are hashing twice
     // Convert to fixed-size array [u8; 32]
-    Ok(Txid::from_bytes(hash2.into())) //convert hash to our expected return type ->32 byte array
+    Txid::from_bytes(hash2.into()) //convert hash to our expected return type ->32 byte array
+    //no error to be handled simce we have no unwrap so no need to return result
 }
 
 //our type will get cast into this method as variable t
@@ -138,7 +139,8 @@ fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, Error> {
     Ok(Amount::from_sat(u64::from_le_bytes(buffer))) // Interpret them as little‑endian u64
 }
 
-fn main() {
+fn main() -> Result<(), Error> //empty tuple or an error will be handled
+{
     // Example transaction hex string (truncated for demo)
     let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
 
@@ -149,20 +151,20 @@ fn main() {
     let mut bytes_slice = transaction_bytes.as_slice();
 
     // Read the version (first 4 bytes)
-    let version = read_u32(&mut bytes_slice);
+    let version = read_u32(&mut bytes_slice)?; //?-> since we are handling the errors in that function
 
     // Read the input count (CompactSize format)
-    let input_count = read_compact_size(&mut bytes_slice);
+    let input_count = read_compact_size(&mut bytes_slice)?;
     let mut inputs = vec![];
     // Loop through each input and read its txid
     for _ in 0..input_count {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
         //INPUT COMPONENTS
         //for the output index we call u32
-        let output_index = read_u32(&mut bytes_slice);
-        let txid = read_txid(&mut bytes_slice);
-        let script_sig = read_script(&mut bytes_slice);
-        let sequence = read_u32(&mut bytes_slice);
+        let output_index = read_u32(&mut bytes_slice)?;
+        let txid = read_txid(&mut bytes_slice)?;
+        let script_sig = read_script(&mut bytes_slice)?;
+        let sequence = read_u32(&mut bytes_slice)?;
         //we shall push the inputs isnto the inputs vec
         inputs.push(Input {
             txid: txid, //you can just remove key -value and just replace with values only
@@ -172,15 +174,15 @@ fn main() {
         });
     }
     //after input section we shall collect our outputs
-    let output_count = read_compact_size(&mut bytes_slice);
+    let output_count = read_compact_size(&mut bytes_slice)?;
     let mut outputs = vec![];
     // Loop through each input and read its txid
     for _ in 0..output_count {
         //BUT ITS BETTER TO PUT THIS IN A SCTRUCT
         //INPUT COMPONENTS
         //for the output index we call u32
-        let amount = read_amount(&mut bytes_slice); //.to_btc; //since it was in satoshi's
-        let script_pubkey = read_script(&mut bytes_slice);
+        let amount = read_amount(&mut bytes_slice)?; //.to_btc; //since it was in satoshi's
+        let script_pubkey = read_script(&mut bytes_slice)?;
 
         //we shall push the inputs isnto the inputs vec
         outputs.push(Input {
@@ -190,7 +192,7 @@ fn main() {
     }
 
     // Read lock_time from the byte slice
-    let lock_time = read_u32(&mut bytes_slice);
+    let lock_time = read_u32(&mut bytes_slice)?;
 
     // Compute the transaction ID by double SHA-256 hashing
     let transaction_id = hash_raw_transaction(&transaction_bytes);
@@ -224,6 +226,7 @@ fn main() {
     // Print parsed values
     println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
     // println!("Inputs {}", json_inputs);
+    //we return an empty tuple for the program to compile correctly
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
 variable : length format
