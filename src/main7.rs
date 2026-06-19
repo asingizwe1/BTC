@@ -74,10 +74,11 @@ fn read_txid(transaction_bytes: &mut &[u8]) -> Txid {
 
 //mut &[u8] -> any dynamically sized contiguous data
 //since the script size isnt known
-fn read_script(transaction_bytes: &mut &[u8]) -> String {
+fn read_script(transaction_bytes: &mut &[u8]) -> Result<String, Error> {
     //-> Vec<u8> {
     //You can’t directly use u64 for indexing or allocation because Rust enforces type safety.
-    let script_size = read_compact_size(&mut bytes_slice) as usize;
+    let script_size = read_compact_size(&mut bytes_slice)? //? because read_compact_size was changed to return a result 
+    as usize;
     let mut buffer = vec![0_u8; script_size]; //the length parameter must be a usize, not u64.
     //usize is the type Rust uses for memory sizes and indexing.
     /*On a 32‑bit system → usize is 32 bits.
@@ -88,7 +89,7 @@ fn read_script(transaction_bytes: &mut &[u8]) -> String {
     hex::encode(buffer) // buffer
 }
 //sha 256 will always produce 32 bytes so we know size at compile time
-fn hash_raw_transaction(raw_transaction: &[u8]) -> Txid {
+fn hash_raw_transaction(raw_transaction: &[u8]) -> Result<Txid, Error> {
     // First SHA-256 hash
     let mut hasher = Sha256::new();
     hasher.update(raw_transaction);
@@ -100,14 +101,14 @@ fn hash_raw_transaction(raw_transaction: &[u8]) -> Txid {
     let hash2 = hasher.finalize();
     //we make sure we are hashing twice
     // Convert to fixed-size array [u8; 32]
-    Txid::from_bytes(hash2.into()) //convert hash to our expected return type ->32 byte array
+    Ok(Txid::from_bytes(hash2.into())) //convert hash to our expected return type ->32 byte array
 }
 
 //our type will get cast into this method as variable t
 //we are storing amount as amount type but displaying it as an f64
 fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
     let btc = t.to_btc(); //rust doesnt know about the types to be passed in this method
-    s.serialize_f64(btc)
+    Ok(s.serialize_f64(btc))
 }
 // Implement the Debug trait manually
 // impl fmt::Debug for Input {
@@ -121,20 +122,20 @@ fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error
 //     }
 // }
 // Reads the 4‑byte version field from the transaction
-fn read_32(transaction_bytes: &mut &[u8]) -> u32 {
+fn read_32(transaction_bytes: &mut &[u8]) -> Result<u32, Error> {
     //making read_version more generic
     //we read 4 bytes and retruned u32 representing the version also the index works the same way
     let mut buffer = [0; 4]; // Allocate 4 bytes
-    transaction_bytes.read(&mut buffer).unwrap(); // Read 4 bytes into buffer
-    u32::from_le_bytes(buffer) // Interpret them as little‑endian u32
+    transaction_bytes.read(&mut buffer)?; // Read 4 bytes into buffer
+    Ok(u32::from_le_bytes(buffer)) // Interpret them as little‑endian u32
 }
 
-fn read_amount(transaction_bytes: &mut &[u8]) -> Amount {
+fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, Error> {
     //making read_version more generic
     //we read 4 bytes and retruned u32 representing the version also the index works the same way
     let mut buffer = [0; 8]; // Allocate 8 bytes
-    transaction_bytes.read(&mut buffer).unwrap(); // Read 8 bytes into buffer
-    Amount::from_sat(u64::from_le_bytes(buffer)) // Interpret them as little‑endian u64
+    transaction_bytes.read(&mut buffer)?; // Read 8 bytes into buffer
+    Ok(Amount::from_sat(u64::from_le_bytes(buffer))) // Interpret them as little‑endian u64
 }
 
 fn main() {
@@ -142,7 +143,7 @@ fn main() {
     let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
 
     // Decode hex string into raw bytes
-    let transaction_bytes = hex::decode(transaction_hex).unwrap();
+    let transaction_bytes = hex::decode(transaction_hex)?;
 
     // Turn Vec<u8> into a slice so we can read sequentially
     let mut bytes_slice = transaction_bytes.as_slice();
@@ -221,10 +222,7 @@ fn main() {
 
     // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
     // Print parsed values
-    println!(
-        "Tx: {}",
-        serde_json::to_string_pretty(&transaction).unwrap()
-    );
+    println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
     // println!("Inputs {}", json_inputs);
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
