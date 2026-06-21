@@ -139,16 +139,17 @@ fn read_amount(transaction_bytes: &mut &[u8]) -> Result<Amount, ioError> {
     transaction_bytes.read(&mut buffer)?; // Read 8 bytes into buffer
     Ok(Amount::from_sat(u64::from_le_bytes(buffer))) // Interpret them as little‑endian u64
 }
-
-fn main() -> Result<(), dyn Error> //empty tuple or an error will be handled
-{
+//since main handling is distutbing we use another function
+fn decode(transaction_hex: String) -> Result<String, Box<dyn Error>> {
+    //?-> will help converting errors to box type
     //box type takes some data and  allocates IT TO HEAP AND returns a pointer
     //coz pointer size is known at compile time and those many error types of Dyn err arent known
     // Example transaction hex string (truncated for demo)
     let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
 
     // Decode hex string into raw bytes
-    let transaction_bytes = hex::decode(transaction_hex).unwrap();
+    let transaction_bytes =
+        hex::decode(transaction_hex).map_err(|e| format("Hex decode error", e))?; //this just creates a string
     ///putting ? would coz an error coz rust expects error from rust not a custom one
     // Turn Vec<u8> into a slice so we can read sequentially
     let mut bytes_slice = transaction_bytes.as_slice();
@@ -224,7 +225,10 @@ fn main() -> Result<(), dyn Error> //empty tuple or an error will be handled
             s.serialize_str(&hex::encode(bytes))
         }
     }
+}
 
+fn main() -> Result<(), Box<dyn Error>> //empty tuple or an error will be handled
+{
     // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
     // Print parsed values
     println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
