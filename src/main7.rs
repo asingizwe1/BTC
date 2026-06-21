@@ -1,3 +1,4 @@
+//try using builder method
 use hex;
 // use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
 use sha2::{Digest, Sha256};
@@ -144,8 +145,6 @@ fn decode(transaction_hex: String) -> Result<String, Box<dyn Error>> {
     //?-> will help converting errors to box type
     //box type takes some data and  allocates IT TO HEAP AND returns a pointer
     //coz pointer size is known at compile time and those many error types of Dyn err arent known
-    // Example transaction hex string (truncated for demo)
-    let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
 
     // Decode hex string into raw bytes
     let transaction_bytes =
@@ -225,15 +224,24 @@ fn decode(transaction_hex: String) -> Result<String, Box<dyn Error>> {
             s.serialize_str(&hex::encode(bytes))
         }
     }
+
+    Ok(serde_json::to_string_pretty(&transaction)?) //returning a json string
 }
 
-fn main() -> Result<(), Box<dyn Error>> //empty tuple or an error will be handled
+fn main() //-> Result<(), Box<dyn Error>> //empty tuple or an error will be handled
 {
-    // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
-    // Print parsed values
-    println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
-    // println!("Inputs {}", json_inputs);
-    Ok(()) //we return an empty tuple for the program to compile correctly
+    // Example transaction hex string (truncated for demo)
+    let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
+    match decode(transaction_hex.to_string()) {
+        //match statement which decodes our transaction
+        Ok(json) => println!("Decoded Transaction: {}", json),
+        Err(e) => eprintln!("Error decoding transaction: {}", e),
+    }
+    // // let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
+    // // Print parsed values
+    // println!("Tx: {}", serde_json::to_string_pretty(&transaction)?);
+    // // println!("Inputs {}", json_inputs);
+    // Ok(()) //we return an empty tuple for the program to compile correctly
 }
 /*  a “compressed integer” format - compact size ->Instead of always using 8 bytes, Bitcoin saves space by using fewer bytes for small numbers.
 variable : length format
@@ -250,3 +258,41 @@ LEB128 in WebAssembly.
 Variable‑length quantity (VLQ) in MIDI files.
 
 */
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_read_compact_size() -> Result<(), Box<dyn Error>> {
+        // Case 1: single byte
+        let mut bytes = [1_u8].as_slice();
+        let count = read_compact_size(&mut bytes)?;
+        assert_eq!(count, 1_u64);
+
+        // Case 2: marker 253 (0xfd) followed by 2 bytes
+        let mut bytes = [253_u8, 0, 1].as_slice();
+        let count = read_compact_size(&mut bytes)?;
+        assert_eq!(count, 256_u64);
+
+        // Case 3: marker 254 (0xfe) followed by 4 bytes
+        let mut bytes = [254_u8, 0, 0, 1].as_slice();
+        let count = read_compact_size(&mut bytes)?;
+        assert_eq!(count, 256_u64.pow(3));
+
+        // Case 4: marker 255 (0xff) followed by 8 bytes
+        let mut bytes = [255_u8, 0, 0, 0, 1].as_slice();
+        let count = read_compact_size(&mut bytes)?;
+        assert_eq!(count, 256_u64.pow(7));
+
+        // Case 5: hex string "fd204e" → 0x4e20 = 20000
+        let hex = "fd204e";
+        let decoded = hex::decode(hex)?;
+        let mut bytes = decoded.as_slice();
+        let count = read_compact_size(&mut bytes)?;
+        let expected_count = 20_000_u64;
+        assert_eq!(count, expected_count);
+
+        Ok(())
+    }
+}
