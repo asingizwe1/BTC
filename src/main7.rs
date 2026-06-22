@@ -1,3 +1,5 @@
+//appying the clap is easier coz we dont need any sub commands
+use clap::Parser;
 //try using builder method
 use hex;
 // use serde::{Serialize, Serializer}; //bringing serde serialize into scope to help in formatting into json format
@@ -31,6 +33,16 @@ use std::io::{Error as ioErr, Read};
 // use serde::{Serialize, Serializer}; we move this to the transaction file
 use transaction::{Amount, Input, Output, Transaction, Txid}; //may fail coz structs are private
 mod transaction;
+
+#[derive(Parser)] //allows us to parse command line input and return argument matches
+#[command(name = "Tx Decoder")]
+#[command(version = "1.0")]
+#[command(about = "A simple Bitcoin Decoder", long_about = None)]
+struct Cli {
+    #[arg(required = true, help = "(string,required)Raw tx hex")]
+    transaction_hex: String,
+}
+
 // Reads a CompactSize integer (Bitcoin’s variable‑length integer format)
 //the error comes from the Read trait
 fn read_compact_size(transaction_bytes: &mut &[u8]) -> Result<u64, ioError> {
@@ -231,8 +243,12 @@ fn decode(transaction_hex: String) -> Result<String, Box<dyn Error>> {
 fn main() //-> Result<(), Box<dyn Error>> //empty tuple or an error will be handled
 {
     // Example transaction hex string (truncated for demo)
-    let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
-    match decode(transaction_hex.to_string()) {
+
+    // let transaction_hex = "01000000024d5c1d6f7308bbe95c0f6e1301dd73a8da77d2155b0773bc29";
+    let cli = Cli::parse();
+
+    match decode(cli.transaction_hex) {
+        //(transaction_hex.to_string()) {
         //match statement which decodes our transaction
         Ok(json) => println!("Decoded Transaction: {}", json),
         Err(e) => eprintln!("Error decoding transaction: {}", e),
